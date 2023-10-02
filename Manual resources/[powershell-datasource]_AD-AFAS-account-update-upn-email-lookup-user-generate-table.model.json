@@ -1,0 +1,42 @@
+[
+  {
+    "key": "UserPrincipalNamePrefix",
+    "type": 0
+  },
+  {
+    "key": "EmailAddressSuffix",
+    "type": 0
+  },
+  {
+    "key": "EmployeeID",
+    "type": 0
+  },
+  {
+    "key": "SurName",
+    "type": 0
+  },
+  {
+    "key": "UserPrincipalName",
+    "type": 0
+  },
+  {
+    "key": "GivenName",
+    "type": 0
+  },
+  {
+    "key": "displayName",
+    "type": 0
+  },
+  {
+    "key": "EmailAddressPrefix",
+    "type": 0
+  },
+  {
+    "key": "EmailAddress",
+    "type": 0
+  },
+  {
+    "key": "UserPrincipalNameSuffix",
+    "type": 0
+  }
+]
