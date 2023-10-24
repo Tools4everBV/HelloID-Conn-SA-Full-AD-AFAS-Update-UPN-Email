@@ -11,7 +11,7 @@ This HelloID Service Automation Delegated Form provides updates for user princip
 ## Versioning
 | Version | Description   | Date       |
 | ------- | ------------- | ---------- |
-| 1.0.0   | First release | 2023/09/26 |
+| 1.0.0   | First release | 2023/10/24 |
 
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
@@ -24,8 +24,7 @@ This HelloID Service Automation Delegated Form provides updates for user princip
 - [Manual resources](#manual-resources)
   - [Powershell data source 'AD-AFAS-account-update-upn-email-lookup-user-generate-table'](#powershell-data-source-ad-afas-account-update-upn-email-lookup-user-generate-table)
   - [Powershell data source 'AD-AFAS-account-update-upn-email-table-user-details'](#powershell-data-source-ad-afas-account-update-upn-email-table-user-details)
-  - [Powershell data source 'AD-AFAS-account-update-upn-email-validate-upn'](#powershell-data-source-ad-afas-account-update-upn-email-validate-upn)
-  - [Powershell data source 'AD-AFAS-account-update-upn-email-validate-email'](#powershell-data-source-ad-afas-account-update-upn-email-validate-email)
+  - [Powershell data source 'AD-AFAS-account-update-upn-email-validation'](#powershell-data-source-ad-afas-account-update-upn-email-validation)
   - [Delegated form task 'AD AFAS Account - Update UPN - Email'](#delegated-form-task-ad-afas-account---update-upn---email)
 - [Add another systems to update](#add-another-systems-to-update)
 - [Getting help](#getting-help)
@@ -61,11 +60,8 @@ This Powershell data source runs an Active Directory query to search for matchin
 ### Powershell data source 'AD-AFAS-account-update-upn-email-table-user-details'
 This Powershell data source runs an Active Directory query to select an extended list of user attributes of the selected AD user account. 
 
-### Powershell data source 'AD-AFAS-account-update-upn-email-validate-upn'
-This Powershell data source runs an Active Directory query to validate the uniqueness of the new UserPrincipalName. And will return a "Valid" or "Invalid" text. This text is used for validation in the form.
-
-### Powershell data source 'AD-AFAS-account-update-upn-email-validate-email'
-This Powershell data source runs an Active Directory query to validate the uniqueness of the new EmailAddress. The new EmailAddress is validated in EmailAddress and ProxyAddresses. And will return a "Valid" or "Invalid" text. This text is used for validation in the form.
+### Powershell data source 'AD-AFAS-account-update-upn-email-validation'
+This Powershell data source runs an Active Directory query to validate the uniqueness of the new UserPrincipalName and EmailAddress. Both values are also validated in ProxyAddresses. And will return a "Valid" or "Invalid" text. This text is used for validation in the form.
 
 ### Delegated form task 'AD AFAS Account - Update UPN - Email'
 This delegated form task will update two systems. On the AD user account the attributes UserPrincipalName, EmailAddress and ProxyAddresses will be updated (old Primairy 'SMTP:' will be replaced by a alais 'smtp:'). On the AFAS employee the attributes EmAd will be updated.
