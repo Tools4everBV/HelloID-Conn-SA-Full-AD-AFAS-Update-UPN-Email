@@ -1,7 +1,7 @@
 #######################################################################
 # Template: RHo HelloID SA Powershell data source
 # Name:     AD-AFAS-account-update-upn-email-lookup-user-generate-table
-# Date:     26-09-2023
+# Date:     24-10-2023
 #######################################################################
 
 # For basic information about powershell data sources see:
@@ -74,6 +74,7 @@ try {
                     UserPrincipalNameSuffix = $userPrincipalNameSuffix
                     GivenName               = $user.GivenName
                     SurName                 = $user.SurName
+                    SID                     = $([string]$user.SID)
                 }    
                 Write-Output $returnObject      
             }

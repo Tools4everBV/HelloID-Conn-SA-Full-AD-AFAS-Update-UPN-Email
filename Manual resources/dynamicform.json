@@ -68,7 +68,7 @@
     "label": "Details",
     "fields": [
       {
-        "key": "formRow3",
+        "key": "formRowUPN",
         "templateOptions": {},
         "fieldGroup": [
           {
@@ -77,7 +77,9 @@
               "label": "Current user principal name prefix",
               "useDependOn": true,
               "dependOn": "gridUsers",
-              "dependOnProperty": "UserPrincipalNamePrefix"
+              "dependOnProperty": "UserPrincipalNamePrefix",
+              "pattern": "^[a-zA-Z0-9_%+-]+(\\.[a-zA-Z0-9_%+-]+)*",
+              "required": true
             },
             "type": "input",
             "summaryVisibility": "Show",
@@ -128,61 +130,6 @@
         "requiresDataSource": false
       },
       {
-        "key": "validUPN",
-        "templateOptions": {
-          "label": "Valid user principal name",
-          "required": true,
-          "readonly": true,
-          "useDataSource": true,
-          "dataSourceConfig": {
-            "dataSourceGuid": "$dataSourceGuid_1",
-            "input": {
-              "propertyInputs": [
-                {
-                  "propertyName": "upnPrefix",
-                  "otherFieldValue": {
-                    "otherFieldKey": "upnPrefix"
-                  }
-                },
-                {
-                  "propertyName": "upnSuffixCurrent",
-                  "otherFieldValue": {
-                    "otherFieldKey": "upnSuffixCurrent"
-                  }
-                },
-                {
-                  "propertyName": "upnSuffixNew",
-                  "otherFieldValue": {
-                    "otherFieldKey": "upnSuffixNew"
-                  }
-                },
-                {
-                  "propertyName": "selectedUser",
-                  "otherFieldValue": {
-                    "otherFieldKey": "gridUsers"
-                  }
-                }
-              ]
-            }
-          },
-          "displayField": "text",
-          "pattern": "^Valid.*",
-          "useDependOn": false,
-          "dependOn": "searchfield",
-          "minLength": 1
-        },
-        "validation": {
-          "messages": {
-            "pattern": "No valid UPN found"
-          }
-        },
-        "type": "input",
-        "summaryVisibility": "Show",
-        "requiresTemplateOptions": true,
-        "requiresKey": true,
-        "requiresDataSource": false
-      },
-      {
         "key": "upnEmailEqual",
         "templateOptions": {
           "label": "User principal name and email have the same value",
@@ -197,7 +144,7 @@
         "requiresDataSource": false
       },
       {
-        "key": "formRow",
+        "key": "formRowEmail",
         "templateOptions": {},
         "fieldGroup": [
           {
@@ -207,7 +154,8 @@
               "useDependOn": true,
               "dependOn": "gridUsers",
               "dependOnProperty": "EmailAddressPrefix",
-              "readonly": false
+              "readonly": false,
+              "pattern": "^[a-zA-Z0-9_%+-]+(\\.[a-zA-Z0-9_%+-]+)*"
             },
             "validation": {
               "messages": {
@@ -271,15 +219,15 @@
         "requiresDataSource": false
       },
       {
-        "key": "validEmail",
+        "key": "validate",
         "templateOptions": {
-          "label": "Valid email",
+          "label": "Validation",
           "readonly": true,
           "required": true,
           "pattern": "^Valid.*",
           "useDataSource": true,
           "dataSourceConfig": {
-            "dataSourceGuid": "$dataSourceGuid_2",
+            "dataSourceGuid": "$dataSourceGuid_1",
             "input": {
               "propertyInputs": [
                 {
@@ -338,7 +286,7 @@
         },
         "validation": {
           "messages": {
-            "pattern": "No valid Email found"
+            "pattern": "No valid value"
           }
         },
         "type": "input",
