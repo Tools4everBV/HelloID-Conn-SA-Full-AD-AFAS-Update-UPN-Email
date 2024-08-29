@@ -2,16 +2,16 @@
 ## Description
 This HelloID Service Automation Delegated Form provides updates for user principal name and email on an AD user account and AFAS employee. The following options are available:
  1. Search and select the target AD user account
- 2. Show basic AD user account attributes of the selected target user
- 3. Enter new values for the following AD user account attributes: UserPrincipalName and EmailAddress
- 4. The entered UserPrincipalName and EmailAddress are validated
- 5. AD user account [UserPrincipalName and EmailAddress] and AFAS employee [EmAd] attribute are updated with new values
- 6. Writing back [EmAd] in AFAS will be skiped if the employee is not found in AFAS
+ 2. Enter new values for the following AD user account attributes: UserPrincipalName and EmailAddress
+ 3. The entered UserPrincipalName and EmailAddress are validated
+ 4. AD user account [UserPrincipalName and EmailAddress] and AFAS employee [EmAd] attribute are updated with new values
+ 5. Writing back [EmAd] in AFAS will be skiped if the employee is not found in AFAS
 
 ## Versioning
-| Version | Description   | Date       |
-| ------- | ------------- | ---------- |
-| 1.0.0   | First release | 2023/10/24 |
+| Version | Description                 | Date       |
+| ------- | --------------------------- | ---------- |
+| 1.0.0   | First release               | 24-10-2023 |
+| 1.0.0   | Optimization of task script | 28-08-2024 |
 
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
@@ -23,7 +23,6 @@ This HelloID Service Automation Delegated Form provides updates for user princip
 - [Post-setup configuration](#post-setup-configuration)
 - [Manual resources](#manual-resources)
   - [Powershell data source 'AD-AFAS-account-update-upn-email-lookup-user-generate-table'](#powershell-data-source-ad-afas-account-update-upn-email-lookup-user-generate-table)
-  - [Powershell data source 'AD-AFAS-account-update-upn-email-table-user-details'](#powershell-data-source-ad-afas-account-update-upn-email-table-user-details)
   - [Powershell data source 'AD-AFAS-account-update-upn-email-validation'](#powershell-data-source-ad-afas-account-update-upn-email-validation)
   - [Delegated form task 'AD AFAS Account - Update UPN - Email'](#delegated-form-task-ad-afas-account---update-upn---email)
 - [Add another systems to update](#add-another-systems-to-update)
@@ -56,9 +55,6 @@ This Delegated Form uses the following resources in order to run
 
 ### Powershell data source 'AD-AFAS-account-update-upn-email-lookup-user-generate-table'
 This Powershell data source runs an Active Directory query to search for matching AD user accounts. It uses an array of Active Directory OU's specified as HelloID user-defined variable named _"ADusersSearchOU"_ to specify the search scope. This data source returns additional attributes that receive the current values for UserPrincipalName/EmailAddress and also split them into a prefix and a suffix for future uses.
-
-### Powershell data source 'AD-AFAS-account-update-upn-email-table-user-details'
-This Powershell data source runs an Active Directory query to select an extended list of user attributes of the selected AD user account. 
 
 ### Powershell data source 'AD-AFAS-account-update-upn-email-validation'
 This Powershell data source runs an Active Directory query to validate the uniqueness of the new UserPrincipalName and EmailAddress. Both values are also validated in ProxyAddresses. And will return a "Valid" or "Invalid" text. This text is used for validation in the form.
