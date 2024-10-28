@@ -18,7 +18,6 @@ $WarningPreference = "Continue"
 
 $outputText = [System.Collections.Generic.List[PSCustomObject]]::new()
 
-
 # global variables (Automation --> Variable libary):
 # $globalVar = $globalVarName
 
@@ -56,10 +55,7 @@ else {
 #endregion init
 
 #region functions
-# function Remove-StringLatinCharacters {
-#     PARAM ([string]$String)
-#     [Text.Encoding]::ASCII.GetString([Text.Encoding]::GetEncoding("Cyrillic").GetBytes($String))
-# }
+
 #endregion functions
 
 #region lookup
@@ -80,27 +76,6 @@ try {
             })
     }
     
-    # $upnNew = Remove-StringLatinCharacters $upnNew
-    # $emailOrUpnNew = Remove-StringLatinCharacters $emailOrUpnNew
-
-    # $pattern = "^[a-zA-Z0-9_%+-]+(\.[a-zA-Z0-9_%+-]+)*@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    
-    # if (-not($upnNew -match $pattern)) {
-    #     $outputText.Add([PSCustomObject]@{
-    #             Message  = "UPN [$upnNew] invalid character(s) or pattern"
-    #             IsError  = $true
-    #             Property = "UPN"
-    #         })
-    # }
-
-    # if ((-not($emailOrUpnNew -match $pattern))) {
-    #     $outputText.Add([PSCustomObject]@{
-    #             Message  = "Email [$emailOrUpnNew] invalid character(s) or pattern"
-    #             IsError  = $true
-    #             Property = "Email"
-    #         })
-    # }
-
     if (-not($outputText.isError -contains - $true)) {
         write-information "no errors"
         
@@ -160,34 +135,7 @@ try {
                         Property = "ProxyAddress"
                     })
             }
-            
-            # Write-Information "UserPrincipalName [$($record.UserPrincipalName)]"
-            # Write-Information "EmailAddress [$($record.EmailAddress)]"
-            # Write-Information "ProxyAddresses [$($record.ProxyAddresses)]"
-            # Write-Information "DistinguishedName [$($record.DistinguishedName)]"
         }
-
-        # if (-not($outputText.Property -contains "UPN")) {
-        #     $outputText.Add([PSCustomObject]@{
-        #             Message  = "UPN [$upnNew] unique"
-        #             IsError  = $false
-        #             Property = "UPN"
-        #         })
-        # }
-        # if (-not($outputText.Property -contains "Email")) {
-        #     $outputText.Add([PSCustomObject]@{
-        #             Message  = "Email [$emailOrUpnNew] unique"
-        #             IsError  = $false
-        #             Property = "Email"
-        #         })
-        # }
-        # if (-not($outputText.Property -contains "ProxyAddress")) {
-        #     $outputText.Add([PSCustomObject]@{
-        #             Message  = "ProxyAddress [$emailOrUpnNew] unique"
-        #             IsError  = $false
-        #             Property = "ProxyAddress"
-        #         })
-        # }
     }
 
     if ($outputText.isError -contains - $true) {
