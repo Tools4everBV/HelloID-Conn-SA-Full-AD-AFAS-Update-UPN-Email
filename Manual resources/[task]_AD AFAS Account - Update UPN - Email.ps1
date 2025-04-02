@@ -60,6 +60,16 @@ else {
 #endregion global
 
 #region AD
+# Search user
+ try {
+     $properties = @('SID', 'ObjectGuid', 'UserPrincipalName', 'SamAccountName', 'Mail', 'ProxyAddresses', 'EmployeeId')
+     $adUser = Get-ADuser -Filter { UserPrincipalName -eq $currentUPN } -Properties $properties
+     Write-Information "Found AD user [$currentUPN]"        
+ }
+ catch {
+     Write-Error "Could not find AD user [$currentUPN]. Error: $($_.Exception.Message)"    
+ }
+ 
 # Set UPN, EmailAdress and update proxyAddresses
 try {
     $proxyAddresses = @()
@@ -127,7 +137,7 @@ function Resolve-HTTPError {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
         }
         elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
-            $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+            $httpErrorObj.ErrorMessage = [HelloID.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
     }
