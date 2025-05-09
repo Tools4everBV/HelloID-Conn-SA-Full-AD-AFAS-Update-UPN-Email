@@ -60,6 +60,16 @@ else {
 #endregion global
 
 #region AD
+# Search user
+ try {
+     $properties = @('SID', 'ObjectGuid', 'UserPrincipalName', 'SamAccountName', 'Mail', 'ProxyAddresses', 'EmployeeId')
+     $adUser = Get-ADuser -Filter { UserPrincipalName -eq $currentUPN } -Properties $properties
+     Write-Information "Found AD user [$currentUPN]"        
+ }
+ catch {
+     Write-Error "Could not find AD user [$currentUPN]. Error: $($_.Exception.Message)"    
+ }
+ 
 # Set UPN, EmailAdress and update proxyAddresses
 try {
     $proxyAddresses = @()
