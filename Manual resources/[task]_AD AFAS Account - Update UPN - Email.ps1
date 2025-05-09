@@ -137,7 +137,7 @@ function Resolve-HTTPError {
             $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
         }
         elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
-            $httpErrorObj.ErrorMessage = [HelloID.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+            $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
         }
         Write-Output $httpErrorObj
     }
