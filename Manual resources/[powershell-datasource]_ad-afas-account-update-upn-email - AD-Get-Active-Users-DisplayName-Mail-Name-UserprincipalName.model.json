@@ -1,0 +1,22 @@
+[
+    {
+        "key":  "SamAccountName",
+        "type":  0
+    },
+    {
+        "key":  "DisplayName",
+        "type":  0
+    },
+    {
+        "key":  "UserPrincipalName",
+        "type":  0
+    },
+    {
+        "key":  "mail",
+        "type":  0
+    },
+    {
+        "key":  "ObjectGuid",
+        "type":  0
+    }
+]
