@@ -4,7 +4,7 @@ $blnmail = [System.Convert]::ToBoolean($form.blnMail)
 $blnupn = [System.Convert]::ToBoolean($form.blnUPN)
 $newMailAddress = $form.newMail
 $newUserPrincipalName = $form.newUPN
-$BaseUri = $AFASBaseUrl
+$BaseUrl = $AFASBaseUrl
 $Token = $AFASToken
 $getConnector = "T4E_HelloID_Users_v2"
 $updateConnector = "KnEmployee"
@@ -16,53 +16,46 @@ $VerbosePreference = "SilentlyContinue"
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
 
-function Resolve-HTTPError {
+#region AFAS functions
+function Resolve-AFAS-ProfitError {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory,
-            ValueFromPipeline
-        )]
-        [object]$ErrorObject
+        [Parameter(Mandatory)]
+        [object]
+        $ErrorObject
     )
     process {
         $httpErrorObj = [PSCustomObject]@{
-            FullyQualifiedErrorId = $ErrorObject.FullyQualifiedErrorId
-            MyCommand             = $ErrorObject.InvocationInfo.MyCommand
-            RequestUri            = $ErrorObject.TargetObject.RequestUri
-            ScriptStackTrace      = $ErrorObject.ScriptStackTrace
-            ErrorMessage          = ''
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $ErrorObject.Exception.Message
+            FriendlyMessage  = $ErrorObject.Exception.Message
         }
-        if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
-            $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
+        if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
+            $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
         }
         elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
-            $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+            if ($null -ne $ErrorObject.Exception.Response) {
+                $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+                if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
+                    $httpErrorObj.ErrorDetails = $streamReaderResponse
+                }
+            }
         }
-        Write-Output $httpErrorObj
-    }
-}
-function Resolve-AFASErrorMessage {
-    [CmdletBinding()]
-    param (
-        [Parameter(ValueFromPipeline)]
-        [object]$ErrorObject
-    )
-    process {
         try {
-            $errorObjectConverted = $ErrorObject | ConvertFrom-Json -ErrorAction Stop
+            $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
 
-            if ($null -ne $errorObjectConverted.externalMessage) {
-                $errorMessage = $errorObjectConverted.externalMessage
+            if ($null -ne $errorDetailsObject.externalMessage) {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.externalMessage
             }
             else {
-                $errorMessage = $errorObjectConverted
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject
             }
         }
         catch {
-            $errorMessage = "$($ErrorObject.Exception.Message)"
+            $httpErrorObj.FriendlyMessage = "[$($httpErrorObj.ErrorDetails)]"
         }
-
-        Write-Output $errorMessage
+        Write-Output $httpErrorObj
     }
 }
 
@@ -172,7 +165,7 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
         $Headers = @{ Authorization = $authValue }
 
         $splatWebRequest = @{
-            Uri             = $BaseUri + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
+            Uri             = $BaseUrl + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
             Headers         = $headers
             Method          = 'GET'
             ContentType     = "application/json;charset=utf-8"
@@ -225,7 +218,7 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
 
                     $body = ($updateAccount | ConvertTo-Json -Depth 10)
                     $splatWebRequest = @{
-                        Uri             = $BaseUri + "/connectors/" + $updateConnector
+                        Uri             = $BaseUrl + "/connectors/" + $updateConnector
                         Headers         = $headers
                         Method          = 'PUT'
                         Body            = ([System.Text.Encoding]::UTF8.GetBytes($body))
@@ -233,7 +226,7 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
                         UseBasicParsing = $true
                     }
 
-                    Invoke-RestMethod @splatWebRequest -Verbose:$false
+                    $null = Invoke-RestMethod @splatWebRequest -Verbose:$false
                     $Log = @{
                         Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
                         System            = "AFAS Employee" # optional (free format text) 
@@ -265,38 +258,28 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
     }
     catch {
         $ex = $PSItem
-        if ( $($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
-            $errorObject = Resolve-HTTPError -Error $ex
-
-            $verboseErrorMessage = $errorObject.ErrorMessage
-
-            $auditErrorMessage = Resolve-AFASErrorMessage -ErrorObject $errorObject.ErrorMessage
+        if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+            $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+            $errorObj = Resolve-AFAS-ProfitError -ErrorObject $ex
+            $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+            $auditMessage = "Error $($actionMessage). Error: $($errorObj.FriendlyMessage)"
         }
-
-        # If error message empty, fall back on $ex.Exception.Message
-        if ([String]::IsNullOrEmpty($verboseErrorMessage)) {
-            $verboseErrorMessage = $ex.Exception.Message
+        else {
+            $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+            $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
         }
-        if ([String]::IsNullOrEmpty($auditErrorMessage)) {
-            $auditErrorMessage = $ex.Exception.Message
-        }
-
-        $ex = $PSItem
-        $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
-        $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
-
-        $Log = @{
+        $log = @{
             Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
-            System            = "AFAS Employee" # optional (free format text) 
-            Message           = "Error $($actionMessage). Error Message: $auditErrorMessage" # required (free format text) 
+            System            = "AFAS" # optional (free format text) 
+            Message           = $auditMessage # required (free format text) 
             IsError           = $true # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-            TargetDisplayName = $user.userPrincipalName # optional (free format text) 
-            TargetIdentifier  = $user.ObjectGuid # optional (free format text) 
+            TargetDisplayName = $displayName # optional (free format text) 
+            TargetIdentifier  = $([string]$employeeID) # optional (free format text) 
         }
-        #send result back  
         Write-Information -Tags "Audit" -MessageData $log
-        Write-Warning $warningMessage   
+        Write-Warning $warningMessage
         Write-Error $auditMessage
+        # exit # use when using multiple try/catch and the script must stop
     }
 }
 else {
@@ -324,7 +307,7 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
         $Headers = @{ Authorization = $authValue }
 
         $splatWebRequest = @{
-            Uri             = $BaseUri + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
+            Uri             = $BaseUrl + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
             Headers         = $Headers
             Method          = 'GET'
             ContentType     = "application/json;charset=utf-8"
@@ -384,7 +367,7 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
 
                 $body = ($updateAccount | ConvertTo-Json -Depth 10)
                 $splatWebRequest = @{
-                    Uri             = $BaseUri + "/connectors/KnUser"
+                    Uri             = $BaseUrl + "/connectors/KnUser"
                     Headers         = $Headers
                     Method          = 'PUT'
                     Body            = ([System.Text.Encoding]::UTF8.GetBytes($body))
@@ -392,7 +375,7 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
                     UseBasicParsing = $true
                 }
 
-                Invoke-RestMethod @splatWebRequest -Verbose:$false
+                $null = Invoke-RestMethod @splatWebRequest -Verbose:$false
 
                 $Log = @{
                     Action            = "UpdateAccount"
@@ -421,27 +404,21 @@ if (-not([string]::IsNullOrEmpty($user.employeeID))) {
     }
     catch {
         $ex = $PSItem
-        if (($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or ($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
-            $errorObject = Resolve-HTTPError -ErrorObject $ex
-            $verboseErrorMessage = $errorObject.ErrorMessage
-            $auditErrorMessage = Resolve-AFASErrorMessage -ErrorObject $errorObject.ErrorMessage
+        if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+            $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+            $errorObj = Resolve-AFAS-ProfitError -ErrorObject $ex
+            $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+            $auditMessage = "Error $($actionMessage). Error: $($errorObj.FriendlyMessage)"
         }
-
-        # If error message empty, fall back on $ex.Exception.Message
-        if ([String]::IsNullOrEmpty($verboseErrorMessage)) {
-            $verboseErrorMessage = $ex.Exception.Message
+        else {
+            $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+            $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
         }
-        if ([String]::IsNullOrEmpty($auditErrorMessage)) {
-            $auditErrorMessage = $ex.Exception.Message
-        }
-
-        $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
-        $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
 
         $Log = @{
             Action            = "UpdateAccount"
             System            = "AFAS User"
-            Message           = "Error $($actionMessage). Error Message: $auditErrorMessage"
+            Message           = "Error $($actionMessage). Error Message: $auditMessage"
             IsError           = $true
             TargetDisplayName = $user.userPrincipalName
             TargetIdentifier  = $user.ObjectGuid

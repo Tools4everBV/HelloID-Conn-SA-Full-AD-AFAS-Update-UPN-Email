@@ -135,15 +135,10 @@ try {
     }
 
     foreach ($text in $outputText) {
-        $outputMessage += " | " + $($text.Message)
+        $outputMessage += "`n" + $($text.Message)
     }
 
-    $returnObject = @{
-        text              = $outputMessage
-        userPrincipalName = $newUserPrincipalName
-        emailAddress      = $newMailAddress
-    }
-    Write-Output $returnObject  
+    Write-Output $outputMessage  
 }
 catch {
     $ex = $PSItem
