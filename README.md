@@ -7,93 +7,118 @@
   <img src="https://github.com/Tools4everBV/HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email/blob/main/Logo.png?raw=true">
 </p>
 
-## Table of contents
+## Description
 
-- [HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email](#helloid-conn-sa-full-ad-afas-update-upn-email)
-  - [Table of contents](#table-of-contents)
-  - [Requirements](#requirements)
-  - [Remarks](#remarks)
-  - [Introduction](#introduction)
-      - [Description](#description)
-      - [Endpoints](#endpoints)
-      - [Form Options](#form-options)
-      - [Task Actions](#task-actions)
-  - [Connector Setup](#connector-setup)
-    - [Variable Library - User Defined Variables](#variable-library---user-defined-variables)
-  - [Getting help](#getting-help)
-  - [HelloID docs](#helloid-docs)
+HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email is a template designed for use with HelloID Service Automation (SA) Delegated Forms. It can be imported into HelloID and customized according to your requirements.
 
-## Requirements
-1. **HelloID Environment**:
-   - Set up your _HelloID_ environment.
-2. **Entra ID**:
-   - App registration with `API permissions` of the type `Application`:
-      -  `User.ReadWrite.All`
-   - The following information for the app registration is needed in HelloID:
-      - `Application (client) ID`
-      - `Directory (tenant) ID`
-      - `Secret Value`
-3. **AFAS Profit**:
-   - AFAS tenant id
-   - AppConnector token
-   - Loaded AFAS GetConnector
-     - Tools4ever - HelloID - T4E_HelloID_Users_v2.gcn
-     - https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-AFAS-Profit-Employees
-   - Build-in Profit update connector: KnEmployee
+By using this delegated form, you can update User Principal Name (UPN) and Email attributes in Active Directory and AFAS Profit. The following options are available:
+
+1. Search and select the target Active Directory user account
+2. Enter new values for UserPrincipalName and EmailAddress
+3. Validate uniqueness of UserPrincipalName and EmailAddress in Active Directory
+4. Update UserPrincipalName, EmailAddress, and ProxyAddresses in Active Directory
+5. Update EmAd in AFAS Employee and EmAd/Upn in AFAS User when a matching employee is found
+
+## Getting started
+
+### Requirements
+
+#### Active Directory setup
+
+Before implementing this connector, make sure the HelloID Agent runs under an account with sufficient rights to update Active Directory user attributes.
+
+Recommended permissions:
+
+- Account Operators rights (or equivalent delegated rights) to update:
+  - UserPrincipalName
+  - EmailAddress
+  - ProxyAddresses
+
+#### AFAS setup
+
+Ensure AFAS Profit is configured with:
+
+- AFAS tenant id
+- AFAS AppConnector token
+- Loaded AFAS GetConnector:
+  - Tools4ever - HelloID - T4E_HelloID_Users_v2.gcn
+  - https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-AFAS-Profit-Employees
+- Built-in Profit update connectors:
+  - KnEmployee
+  - KnUser
+
+#### HelloID-specific configuration
+
+Once you have completed the Active Directory and AFAS setup, configure the following HelloID-specific requirements:
+
+- Configure the user-defined variables listed in Connection settings
+- Import and configure the delegated form and task scripts
+
+### Connection settings
+
+The following user-defined variables are used by the connector and should be configured in HelloID Service Automation (Automation -> Variable library).
+
+| Variable Name   | Description                                                                                               | Required |
+| --------------- | --------------------------------------------------------------------------------------------------------- | -------- |
+| ADusersSearchOU | Array of Active Directory OUs used to scope user search results                                           | Yes      |
+| AFASBaseUrl     | The base URL to the AFAS Profit REST API (for example: https://12345.rest.afas.online/profitrestservices) | Yes      |
+| AFASToken       | The AppConnector token for AFAS Profit authentication                                                     | Yes      |
 
 ## Remarks
-- None at this time.
 
-## Introduction
+### Uniqueness validation
 
-#### Description
-_HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email_ is a template designed for use with HelloID Service Automation (SA) Delegated Forms. It can be imported into HelloID and customized according to your requirements. 
+- The form validates uniqueness for UserPrincipalName and EmailAddress before updating.
+- Validation checks both direct attributes and ProxyAddresses.
+- The selected user itself is excluded from the uniqueness check.
 
-By using this delegated form, you gain the ability to update the UPN and Email in Active Directory and AFAS Profit. The following options are available:
- 1. Search and select the target Active Directory user account
- 2. Enter new values for the following Active Directory user account attributes: UserPrincipalName and EmailAddress
- 3. The entered UserPrincipalName and EmailAddress are validated
- 4. Active Directory user account [UserPrincipalName and EmailAddress] and AFAS employee [EmAd] attribute are updated with new values
- 5. Writing back [EmAd] in AFAS will be skiped if the employee is not found in AFAS
+### ProxyAddresses behavior
 
-#### Endpoints
-AFAS Profit provides a set of REST APIs that allow you to programmatically interact with its data.. The API endpoints listed in the table below are used.
+- When the primary SMTP value changes, the previous primary address (SMTP:) is converted to an alias (smtp:).
+- This preserves historical aliases while setting the new primary address.
 
-| Endpoint                      | Description   |
-| ----------------------------- | ------------- |
-| profitrestservices/connectors | AFAS endpoint |
+### AFAS employee matching
 
-#### Form Options
-The following options are available in the form:
+- AFAS updates depend on a valid EmployeeID correlation between Active Directory and AFAS.
+- If no matching AFAS employee is found, AFAS updates are skipped while Active Directory updates can still proceed.
 
-1. **Lookup user**:
-   - This Powershell data source runs an Active Directory query to search for matching AD user accounts. It uses an array of Active Directory OU's specified as HelloID user-defined variable named _"ADusersSearchOU"_ to specify the search scope. This data source returns additional attributes that receive the current values for UserPrincipalName/EmailAddress.
-2. **Validate UPN and Email**:
-   - This Powershell data source runs an Active Directory query to validate the uniqueness of the new UserPrincipalName and EmailAddress. Both values are also validated in ProxyAddresses. And will return a "Valid" or "Invalid" text. This text is used for validation in the form.
+### AFAS target objects
 
-#### Task Actions
-The following actions will be performed based on user selections:
+- AFAS Employee connector updates EmAd.
+- AFAS User connector updates EmAd and/or Upn.
 
-1. **Update UPN and Email in Active Directory**:
-   - On the AD user account the attributes UserPrincipalName, EmailAddress and ProxyAddresses will be updated (old Primairy 'SMTP:' will be replaced by a alias 'smtp:').
-2. **Update EmAd in AFAS Profit Employee**:
-   - On the AFAS employee the attributes EmAd will be updated.
-3. **Update EmAd in AFAS Profit User**:
-   - On the AFAS employee the attributes EmAd and/or Upn will be updated.
+## Development resources
 
-## Connector Setup
-### Variable Library - User Defined Variables
-The following user-defined variables are used by the connector. Ensure that you check and set the correct values required to connect to the API.
+### Endpoints and operations
 
-| Setting           | Description                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------- |
-| `ADusersSearchOU` | Array of Active Directory OUs for scoping AD user accounts in the search result of this form |
-| `AFASBaseUrl`     | The URL to the AFAS environment REST service                                                 |
-| `AFASToken`       | The password to the P12 certificate of your service account                                  |
+The following operations are used by the connector:
+
+| Operation                                     | Purpose                                                    |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| Active Directory (Get-ADUser)                 | Search and retrieve Active Directory users                 |
+| Active Directory (Set-ADUser)                 | Update UserPrincipalName, EmailAddress, and ProxyAddresses |
+| {AFASBaseUrl}/connectors/T4E_HelloID_Users_v2 | Retrieve AFAS employee information                         |
+| {AFASBaseUrl}/connectors/KnEmployee           | Update AFAS employee EmAd                                  |
+| {AFASBaseUrl}/connectors/KnUser               | Update AFAS user EmAd and/or Upn                           |
+
+### API and cmdlet documentation
+
+- Active Directory Get-ADUser: https://learn.microsoft.com/en-us/powershell/module/activedirectory/get-aduser
+- Active Directory Set-ADUser: https://learn.microsoft.com/en-us/powershell/module/activedirectory/set-aduser
+- AFAS Profit REST API Documentation: https://help.afas.nl/help/NL/SE/App_Cnr_Rest_Updconnectors.htm
 
 ## Getting help
 > [!TIP]
 > _For more information on Delegated Forms, please refer to our [documentation](https://docs.helloid.com/en/service-automation/delegated-forms.html) pages_.
 
 ## HelloID docs
+
 The official HelloID documentation can be found at: https://docs.helloid.com/
+
+## Additional Links
+
+- Code: https://github.com/Tools4everBV/HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email
+- Issues: https://github.com/Tools4everBV/HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email/issues
+- Pull requests: https://github.com/Tools4everBV/HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email/pulls
+- Actions: https://github.com/Tools4everBV/HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email/actions
+- Security and quality: https://github.com/Tools4everBV/HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email/security
