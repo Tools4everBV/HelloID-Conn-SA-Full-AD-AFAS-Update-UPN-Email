@@ -3,7 +3,7 @@
         "description":  null,
         "translateDescription":  false,
         "inputFieldType":  1,
-        "key":  "emailPrefix",
+        "key":  "newUPN",
         "type":  0,
         "options":  0
     },
@@ -11,7 +11,7 @@
         "description":  null,
         "translateDescription":  false,
         "inputFieldType":  1,
-        "key":  "emailSuffixCurrent",
+        "key":  "newMail",
         "type":  0,
         "options":  0
     },
@@ -19,7 +19,7 @@
         "description":  null,
         "translateDescription":  false,
         "inputFieldType":  1,
-        "key":  "emailSuffixNew",
+        "key":  "blnMail",
         "type":  0,
         "options":  0
     },
@@ -27,7 +27,7 @@
         "description":  null,
         "translateDescription":  false,
         "inputFieldType":  1,
-        "key":  "selectedUser",
+        "key":  "blnUPN",
         "type":  0,
         "options":  0
     },
@@ -35,31 +35,7 @@
         "description":  null,
         "translateDescription":  false,
         "inputFieldType":  1,
-        "key":  "upnPrefix",
-        "type":  0,
-        "options":  0
-    },
-    {
-        "description":  null,
-        "translateDescription":  false,
-        "inputFieldType":  1,
-        "key":  "upnSuffixCurrent",
-        "type":  0,
-        "options":  0
-    },
-    {
-        "description":  null,
-        "translateDescription":  false,
-        "inputFieldType":  1,
-        "key":  "upnSuffixNew",
-        "type":  0,
-        "options":  0
-    },
-    {
-        "description":  null,
-        "translateDescription":  false,
-        "inputFieldType":  1,
-        "key":  "upnEmailEqual",
+        "key":  "user",
         "type":  0,
         "options":  0
     }

@@ -1,181 +1,139 @@
-#######################################################################
-# Template: RHo HelloID SA Delegated form task
-# Name:     AD-account-update-upn-email
-# Date:     28-08-2024
-#######################################################################
+# variables configured in form:
+$user = $form.gridUsers
+$blnmail = [System.Convert]::ToBoolean($form.blnMail)
+$blnupn = [System.Convert]::ToBoolean($form.blnUPN)
+$newMailAddress = $form.newMail
+$newUserPrincipalName = $form.newUPN
+$BaseUrl = $AFASBaseUrl
+$Token = $AFASToken
+$getConnector = "T4E_HelloID_Users_v2"
+$updateConnector = "KnEmployee"
+$filterfieldid = "Medewerker"
+$filtervalue = $user.employeeID # Has to match the AFAS value of the specified filter field ($filterfieldid)
 
-# For basic information about delegated form tasks see:
-# https://docs.helloid.com/en/service-automation/delegated-forms/delegated-form-powershell-scripts/add-a-powershell-script-to-a-delegated-form.html
-
-# Service automation variables:
-# https://docs.helloid.com/en/service-automation/service-automation-variables/service-automation-variable-reference.html
-
-#region init
-# Set TLS to accept TLS, TLS 1.1 and TLS 1.2
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
-
+# Set debug logging
 $VerbosePreference = "SilentlyContinue"
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
 
-# global variables (Automation --> Variable libary):
-# $globalVar = $globalVarName
+#region AFAS functions
+function Resolve-AFAS-ProfitError {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [object]
+        $ErrorObject
+    )
+    process {
+        $httpErrorObj = [PSCustomObject]@{
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $ErrorObject.Exception.Message
+            FriendlyMessage  = $ErrorObject.Exception.Message
+        }
+        if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
+            $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+            if ($null -ne $ErrorObject.Exception.Response) {
+                $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+                if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
+                    $httpErrorObj.ErrorDetails = $streamReaderResponse
+                }
+            }
+        }
+        try {
+            $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
 
-# variables configured in form:
-$currentEmail = $form.gridUsers.EmailAddress
-$currentUPN = $form.gridUsers.UserPrincipalName
-$emailPrefix = $form.emailPrefix
-$emailSuffixCurrent = $form.emailSuffixCurrent
-$emailSuffixNew = $form.emailSuffixNew
-$upnPrefix = $form.upnPrefix
-$upnSuffixCurrent = $form.upnSuffixCurrent
-$upnSuffixNew = $form.upnSuffixNew
-$employeeID = $form.gridUsers.employeeID
-$displayName = $form.gridUsers.displayName
-$upnEmailEqual = $form.upnEmailEqual
-$adUserSID = $form.gridUsers.SID
-#endregion init
-
-#region global
-
-if ([string]::IsNullOrEmpty($upnSuffixNew)) {
-    $newUPN = $upnPrefix + $upnSuffixCurrent
-}
-else {
-    $newUPN = $upnPrefix + $upnSuffixNew
-}
-
-if ($upnEmailEqual -eq "True") {
-    $newEmail = $newUPN
-}
-else {
-    if ([string]::IsNullOrEmpty($emailSuffixNew)) {
-        $newEmail = $emailPrefix + $emailSuffixCurrent
+            if ($null -ne $errorDetailsObject.externalMessage) {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.externalMessage
+            }
+            else {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject
+            }
+        }
+        catch {
+            $httpErrorObj.FriendlyMessage = "[$($httpErrorObj.ErrorDetails)]"
+        }
+        Write-Output $httpErrorObj
     }
-    else {
-        $newEmail = $emailPrefix + $emailSuffixNew
-    }
 }
 
-#endregion global
-
-#region AD
-# Search user
- try {
-     $properties = @('SID', 'ObjectGuid', 'UserPrincipalName', 'SamAccountName', 'Mail', 'ProxyAddresses', 'EmployeeId')
-     $adUser = Get-ADuser -Filter { UserPrincipalName -eq $currentUPN } -Properties $properties
-     Write-Information "Found AD user [$currentUPN]"        
- }
- catch {
-     Write-Error "Could not find AD user [$currentUPN]. Error: $($_.Exception.Message)"    
- }
- 
-# Set UPN, EmailAdress and update proxyAddresses
 try {
+    $actionMessage = "updating AD attributes for user [$($user.userPrincipalName)] with objectguid [$($user.ObjectGuid)]"
+
     $proxyAddresses = @()
-    foreach ($address in $adUSer.ProxyAddresses) {
+    foreach ($address in $user.ProxyAddresses) {
         if ($address.StartsWith('SMTP:')) {
             $address = $address -replace 'SMTP:', 'smtp:'
         }
-        if ($address -eq "smtp:" + $newEmail) {
+        if ($address -eq "smtp:" + $newMailAddress) {
         }
         else {
             $proxyAddresses += $address
         }
     }
 
-    $newPrimary = 'SMTP:' + $newEmail
+    $newPrimary = 'SMTP:' + $newMailAddress
     $proxyAddresses += $newPrimary
 
-    Set-ADUser -Identity $adUserSID -userprincipalname $newUPN -emailaddress $newEmail -Replace @{proxyAddresses = $proxyAddresses }
+    if ($blnupn -eq $true) {
+        Set-ADUser -Identity $user.ObjectGuid -userprincipalname $newUserPrincipalName 
 
-    Write-Information "Finished updating AD user [$displayName] attributes [userPrincipalName] from [$currentUPN] to [$newUPN], [emailaddress] from [$currentEmail] to [$newEmail]"
-    $Log = @{
-        Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
-        System            = "ActiveDirectory" # optional (free format text) 
-        Message           = "Successfully updated AD user [$displayName] attributes [userPrincipalName] from [$currentUPN] to [$newUPN], [emailaddress] from [$currentEmail] to [$newEmail]" # required (free format text) 
-        IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-        TargetDisplayName = $displayName # optional (free format text) 
-        TargetIdentifier  = $([string]$adUserSID) # optional (free format text) 
+        $Log = @{
+            Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
+            System            = "ActiveDirectory" # optional (free format text) 
+            Message           = "Successfully updated AD user [$($user.userPrincipalName)] attributes [userPrincipalName] from [$($user.userPrincipalName)] to [$newUserPrincipalName]" # required (free format text) 
+            IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
+            TargetDisplayName = $user.userPrincipalName # optional (free format text) 
+            TargetIdentifier  = $user.ObjectGuid # optional (free format text) 
+        }
+        #send result back  
+        Write-Information -Tags "Audit" -MessageData $log     
     }
-    #send result back  
-    Write-Information -Tags "Audit" -MessageData $log        
+
+    if ($blnmail -eq $true) {
+        Set-ADUser -Identity $user.ObjectGuid -emailaddress $newMailAddress -Replace @{proxyAddresses = $proxyAddresses }
+
+        $Log = @{
+            Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
+            System            = "ActiveDirectory" # optional (free format text) 
+            Message           = "Successfully updated AD user [$($user.mail)] attributes [mail] from [$($user.mail)] to [$newMailAddress]" # required (free format text) 
+            IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
+            TargetDisplayName = $user.userPrincipalName # optional (free format text) 
+            TargetIdentifier  = $user.ObjectGuid # optional (free format text) 
+        }
+        #send result back  
+        Write-Information -Tags "Audit" -MessageData $log     
+    }
 }
 catch {
-    Write-Error "Could not update attribute AD user [$displayName] attributes [userPrincipalName] from [$currentUPN] to [$newUPN], [emailaddress] from [$currentEmail] to [$newEmail]. Error: $($_.Exception.Message)"
+    $ex = $PSItem
+    $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
+    $warningMessage = "Error at Line [$($ex.InvocationInfo.ScriptLineNumber)]: $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"  
+
     $Log = @{
         Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
         System            = "ActiveDirectory" # optional (free format text) 
-        Message           = "Failed to update AD user [$displayName] attributes [userPrincipalName] from [$currentUPN] to [$newUPN], [emailaddress] from [$currentEmail] to [$newEmail]" # required (free format text) 
+        Message           = "Failed to update AD user [$($user.userPrincipalName)] attributes [userPrincipalName] from [$($user.userPrincipalName)] to [$newUserPrincipalName], [emailaddress] from [$($user.mail)] to [$newMailAddress]" # required (free format text) 
         IsError           = $true # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-        TargetDisplayName = $displayName # optional (free format text) 
-        TargetIdentifier  = $([string]$adUserSID) # optional (free format text) 
+        TargetDisplayName = $user.userPrincipalName # optional (free format text) 
+        TargetIdentifier  = $user.ObjectGuid # optional (free format text) 
     }
     #send result back  
-    Write-Information -Tags "Audit" -MessageData $log     
+    Write-Information -Tags "Audit" -MessageData $log      
+    Write-Warning $warningMessage   
+    Write-Error $auditMessage   
 }
 #endregion AD
 
 #region AFAS
-function Resolve-HTTPError {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory,
-            ValueFromPipeline
-        )]
-        [object]$ErrorObject
-    )
-    process {
-        $httpErrorObj = [PSCustomObject]@{
-            FullyQualifiedErrorId = $ErrorObject.FullyQualifiedErrorId
-            MyCommand             = $ErrorObject.InvocationInfo.MyCommand
-            RequestUri            = $ErrorObject.TargetObject.RequestUri
-            ScriptStackTrace      = $ErrorObject.ScriptStackTrace
-            ErrorMessage          = ''
-        }
-        if ($ErrorObject.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') {
-            $httpErrorObj.ErrorMessage = $ErrorObject.ErrorDetails.Message
-        }
-        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
-            $httpErrorObj.ErrorMessage = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
-        }
-        Write-Output $httpErrorObj
-    }
-}
-function Resolve-AFASErrorMessage {
-    [CmdletBinding()]
-    param (
-        [Parameter(ValueFromPipeline)]
-        [object]$ErrorObject
-    )
-    process {
-        try {
-            $errorObjectConverted = $ErrorObject | ConvertFrom-Json -ErrorAction Stop
-
-            if ($null -ne $errorObjectConverted.externalMessage) {
-                $errorMessage = $errorObjectConverted.externalMessage
-            }
-            else {
-                $errorMessage = $errorObjectConverted
-            }
-        }
-        catch {
-            $errorMessage = "$($ErrorObject.Exception.Message)"
-        }
-
-        Write-Output $errorMessage
-    }
-}
-
-if (-not([string]::IsNullOrEmpty($employeeID))) {
+#AFAS Employee
+if (-not([string]::IsNullOrEmpty($user.employeeID))) {
     # Used to connect to AFAS API endpoints
-    $BaseUri = $AFASBaseUrl
-    $Token = $AFASToken
-    $getConnector = "T4E_HelloID_Users_v2"
-    $updateConnector = "KnEmployee"
 
     #Change mapping here
-    $account = [PSCustomObject]@{
+    $accountEmployee = [PSCustomObject]@{
         'AfasEmployee' = @{
             'Element' = @{
                 'Objects' = @(
@@ -184,7 +142,7 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
                             'Element' = @{
                                 'Fields' = @{
                                     # E-Mail werk  
-                                    'EmAd' = $newEmail                
+                                    'EmAd' = $newMailAddress
                                 }
                             }
                         }
@@ -194,12 +152,12 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
         }
     }
 
-    $filterfieldid = "Medewerker"
-    $filtervalue = $employeeID # Has to match the AFAS value of the specified filter field ($filterfieldid)
+    #$filterfieldid = "Medewerker"
+    #$filtervalue = $user.employeeID # Has to match the AFAS value of the specified filter field ($filterfieldid)
 
     # Get current AFAS employee and verify if a user must be either [created], [updated and correlated] or just [correlated]
     try {
-        Write-Verbose "Querying AFAS employee with $($filterfieldid) $($filtervalue)"
+        $actionMessage = "Querying AFAS employee with $($filterfieldid) $($filtervalue)"
 
         # Create authorization headers
         $encodedToken = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($Token))
@@ -207,7 +165,7 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
         $Headers = @{ Authorization = $authValue }
 
         $splatWebRequest = @{
-            Uri             = $BaseUri + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
+            Uri             = $BaseUrl + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
             Headers         = $headers
             Method          = 'GET'
             ContentType     = "application/json;charset=utf-8"
@@ -218,13 +176,12 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
         if ($null -eq $currentAccount.Medewerker) {
             throw "No AFAS employee found with $($filterfieldid) $($filtervalue)"
         }
-        Write-Information "Found AFAS employee [$($currentAccount.Medewerker)]"
         # Check if current EmAd has a different value from mapped value. AFAS will throw an error when trying to update this with the same value
-        if ([string]$currentAccount.Email_werk -ne $account.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd' -and $null -ne $account.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd') {
+        if ([string]$currentAccount.Email_werk -ne $accountEmployee.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd' -and $null -ne $accountEmployee.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd') {
             $propertiesChanged += @('EmAd')
         }
+
         if ($propertiesChanged) {
-            Write-Verbose "Account property(s) required to update: [$($propertiesChanged -join ",")]"
             $updateAction = 'Update'
         }
         else {
@@ -232,9 +189,9 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
         }
 
         # Update AFAS Employee
-        Write-Verbose "Start updating AFAS employee [$($currentAccount.Medewerker)]"
         switch ($updateAction) {
             'Update' {
+                $actionmessage = "updating AFAS employee [$($user.EmployeeID)] attributes [EmAd] from [$($currentAccount.Email_werk)] to [$newMailAddress] and/or [Upn] from [$($currentAccount.Upn)] to [$newUserPrincipalName]."
                 # Create custom account object for update
                 $updateAccount = [PSCustomObject]@{
                     'AfasEmployee' = @{
@@ -257,43 +214,41 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
                 }
                 if ('EmAd' -in $propertiesChanged) {
                     # E-mail werk
-                    $updateAccount.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd' = $account.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd'
-                    Write-Information "Updating BusinessEmailAddress '$($currentAccount.Email_werk)' with new value '$($updateAccount.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd')'"
+                    $updateAccount.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd' = $accountEmployee.'AfasEmployee'.'Element'.Objects[0].'KnPerson'.'Element'.'Fields'.'EmAd'
+
+                    $body = ($updateAccount | ConvertTo-Json -Depth 10)
+                    $splatWebRequest = @{
+                        Uri             = $BaseUrl + "/connectors/" + $updateConnector
+                        Headers         = $headers
+                        Method          = 'PUT'
+                        Body            = ([System.Text.Encoding]::UTF8.GetBytes($body))
+                        ContentType     = "application/json;charset=utf-8"
+                        UseBasicParsing = $true
+                    }
+
+                    $null = Invoke-RestMethod @splatWebRequest -Verbose:$false
+                    $Log = @{
+                        Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
+                        System            = "AFAS Employee" # optional (free format text) 
+                        Message           = "Successfully updated attribute [EmAd] of AFAS employee [$($user.employeeID)] from [$($currentAccount.Email_werk)] to [$newMailAddress]" # required (free format text) 
+                        IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
+                        TargetDisplayName = $user.userPrincipalName # optional (free format text) 
+                        TargetIdentifier  = $user.ObjectGuid # optional (free format text) 
+                    }
+                    #send result back  
+                    Write-Information -Tags "Audit" -MessageData $log  
                 }
 
-                $body = ($updateAccount | ConvertTo-Json -Depth 10)
-                $splatWebRequest = @{
-                    Uri             = $BaseUri + "/connectors/" + $updateConnector
-                    Headers         = $headers
-                    Method          = 'PUT'
-                    Body            = ([System.Text.Encoding]::UTF8.GetBytes($body))
-                    ContentType     = "application/json;charset=utf-8"
-                    UseBasicParsing = $true
-                }
-
-                $updatedAccount = Invoke-RestMethod @splatWebRequest -Verbose:$false
-                Write-Information "Successfully updated attribute [EmAd] of AFAS employee [$employeeID] from [$($currentAccount.Email_werk)] to [$newEmail]"
-                $Log = @{
-                    Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
-                    System            = "AFAS Employee" # optional (free format text) 
-                    Message           = "Successfully updated attribute [EmAd] of AFAS employee [$employeeID] from [$($currentAccount.Email_werk)] to [$newEmail]" # required (free format text) 
-                    IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-                    TargetDisplayName = $displayName # optional (free format text) 
-                    TargetIdentifier  = $([string]$employeeID) # optional (free format text) 
-                }
-                #send result back  
-                Write-Information -Tags "Audit" -MessageData $log  
                 break
             }
             'NoChanges' {
-                Write-Information "Successfully checked attribute [EmAd] of AFAS employee [$employeeID] from [$($currentAccount.Email_werk)] to [$newEmail], no changes needed"
                 $Log = @{
                     Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
                     System            = "AFAS Employee" # optional (free format text) 
-                    Message           = "Successfully checked attribute [EmAd] of AFAS employee [$employeeID] from [$($currentAccount.Email_werk)] to [$newEmail], no changes needed" # required (free format text) 
+                    Message           = "Successfully checked attributes [EmAd] and [Upn] of AFAS employee [$($user.employeeID)]: [EmAd] [$($currentAccount.Email_werk)] equals [$newMailAddress] and [Upn] [$($currentAccount.Upn)] equals [$newUserPrincipalName]; no changes needed" # required (free format text) 
                     IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-                    TargetDisplayName = $displayName # optional (free format text) 
-                    TargetIdentifier  = $([string]$employeeID) # optional (free format text) 
+                    TargetDisplayName = $user.userPrincipalName # optional (free format text) 
+                    TargetIdentifier  = $user.ObjectGuid # optional (free format text) 
                 }
                 #send result back  
                 Write-Information -Tags "Audit" -MessageData $log  
@@ -303,65 +258,184 @@ if (-not([string]::IsNullOrEmpty($employeeID))) {
     }
     catch {
         $ex = $PSItem
-        if ( $($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
-            $errorObject = Resolve-HTTPError -Error $ex
-
-            $verboseErrorMessage = $errorObject.ErrorMessage
-
-            $auditErrorMessage = Resolve-AFASErrorMessage -ErrorObject $errorObject.ErrorMessage
-        }
-
-        # If error message empty, fall back on $ex.Exception.Message
-        if ([String]::IsNullOrEmpty($verboseErrorMessage)) {
-            $verboseErrorMessage = $ex.Exception.Message
-        }
-        if ([String]::IsNullOrEmpty($auditErrorMessage)) {
-            $auditErrorMessage = $ex.Exception.Message
-        }
-
-        $ex = $PSItem
-        $verboseErrorMessage = $ex
-        if ($auditErrorMessage -Like "No AFAS employee found with $($filterfieldid) $($filtervalue)") {
-            Write-Information "Skipped update attribute [EmAd] of AFAS employee [$employeeID] to [$newEmail]: No AFAS employee found with $($filterfieldid) $($filtervalue)"
-            $Log = @{
-                Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
-                System            = "AFAS Employee" # optional (free format text) 
-                Message           = "Skipped update attribute [EmAd] of AFAS employee [$employeeID] to [$newEmail]: No AFAS employee found with $($filterfieldid) $($filtervalue)" # required (free format text) 
-                IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-                TargetDisplayName = $displayName # optional (free format text) 
-                TargetIdentifier  = $([string]$employeeID) # optional (free format text)
-            }
-            #send result back  
-            Write-Information -Tags "Audit" -MessageData $log 
+        if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+            $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+            $errorObj = Resolve-AFAS-ProfitError -ErrorObject $ex
+            $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+            $auditMessage = "Error $($actionMessage). Error: $($errorObj.FriendlyMessage)"
         }
         else {
-            Write-Verbose "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($verboseErrorMessage)"
-            Write-Error "Error updating AFAS employee $($currentAccount.Medewerker). Error Message: $auditErrorMessage"
-            Write-Information "Error updating AFAS employee $($currentAccount.Medewerker). Error Message: $auditErrorMessage"
-            $Log = @{
-                Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
-                System            = "AFAS Employee" # optional (free format text) 
-                Message           = "Error updating AFAS employee $($currentAccount.Medewerker). Error Message: $auditErrorMessage" # required (free format text) 
-                IsError           = $true # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-                TargetDisplayName = $displayName # optional (free format text) 
-                TargetIdentifier  = $([string]$employeeID) # optional (free format text) 
-            }
-            #send result back  
-            Write-Information -Tags "Audit" -MessageData $log 
+            $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+            $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
         }
+        $log = @{
+            Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
+            System            = "AFAS" # optional (free format text) 
+            Message           = $auditMessage # required (free format text) 
+            IsError           = $true # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
+            TargetDisplayName = $displayName # optional (free format text) 
+            TargetIdentifier  = $([string]$employeeID) # optional (free format text) 
+        }
+        Write-Information -Tags "Audit" -MessageData $log
+        Write-Warning $warningMessage
+        Write-Error $auditMessage
+        # exit # use when using multiple try/catch and the script must stop
     }
 }
 else {
-    Write-Information "Skipped update attribute [EmAd] of AFAS employee [$displayName] to [$newEmail]: employeeID is empty"
     $Log = @{
         Action            = "UpdateAccount" # optional. ENUM (undefined = default) 
         System            = "AFAS Employee" # optional (free format text) 
-        Message           = "Skipped update attribute [EmAd] of AFAS employee [$displayName] to [$newEmail]: employeeID is empty" # required (free format text) 
+        Message           = "Skipped update attributes [EmAd] to [$newMailAddress] of AFAS employee [$($user.employeeID)]: employeeID is empty" # required (free format text) 
         IsError           = $false # optional. Elastic reporting purposes only. (default = $false. $true = Executed action returned an error) 
-        TargetDisplayName = $displayName # optional (free format text) 
-        TargetIdentifier  = $([string]$employeeID) # optional (free format text)
+        TargetDisplayName = $user.userPrincipalName # optional (free format text) 
+        TargetIdentifier  = $user.ObjectGuid # optional (free format text)
     }
     #send result back  
     Write-Information -Tags "Audit" -MessageData $log 
 }
-#endregion AFAS
+
+#AFAS User
+if (-not([string]::IsNullOrEmpty($user.employeeID))) {
+    # Used to connect to AFAS API endpoints
+    try {
+        $actionMessage = "Querying AFAS employee with $($filterfieldid) $($filtervalue)"
+
+        # Create authorization headers
+        $encodedToken = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes($Token))
+        $authValue = "AfasToken $encodedToken"
+        $Headers = @{ Authorization = $authValue }
+
+        $splatWebRequest = @{
+            Uri             = $BaseUrl + "/connectors/" + $getConnector + "?filterfieldids=$filterfieldid&filtervalues=$filtervalue&operatortypes=1"
+            Headers         = $Headers
+            Method          = 'GET'
+            ContentType     = "application/json;charset=utf-8"
+            UseBasicParsing = $true
+        }
+        $currentAccount = (Invoke-RestMethod @splatWebRequest -Verbose:$false).rows
+
+        if ($null -eq $currentAccount.Medewerker) {
+            throw "No AFAS employee found with $($filterfieldid) $($filtervalue)"
+        }
+
+        $propertiesChanged = @()
+
+        if (-not [string]::IsNullOrEmpty($newMailAddress) -and [string]$currentAccount.Email_werk_gebruiker -ne $newMailAddress) {
+            $propertiesChanged += @('EmAd')
+        }
+        if (-not [string]::IsNullOrEmpty($newUserPrincipalName) -and [string]$currentAccount.Upn -ne $newUserPrincipalName) {
+            $propertiesChanged += @('Upn')
+        }
+
+        if ($propertiesChanged) {
+            $updateAction = 'Update'
+        }
+        else {
+            $updateAction = 'NoChanges'
+        }
+
+        # Update AFAS User
+        switch ($updateAction) {
+            'Update' {
+                $actionmessage = "updating AFAS user [$($user.EmployeeID)] attributes [EmAd] from [$($currentAccount.Email_werk_gebruiker)] to [$newMailAddress] and/or [Upn] from [$($currentAccount.Upn)] to [$newUserPrincipalName]."
+
+                $updateAccount = [PSCustomObject]@{
+                    'KnUser' = @{
+                        'Element' = @{
+                            # Gebruiker
+                            '@UsId'  = $currentAccount.Gebruiker
+                            'Fields' = @{
+                                # Mutatie code
+                                'MtCd' = 1
+                                # Omschrijving
+                                "Nm"   = $currentAccount.DisplayName
+                            }
+                        }
+                    }
+                }
+
+                if ('EmAd' -in $propertiesChanged) {
+                    # E-mail werk
+                    $updateAccount.'KnUser'.'Element'.'Fields'.'EmAd' = $newMailAddress
+                }
+
+                if ('Upn' -in $propertiesChanged) {
+                    # UPN
+                    $updateAccount.'KnUser'.'Element'.'Fields'.'Upn' = $newUserPrincipalName
+                }
+
+                $body = ($updateAccount | ConvertTo-Json -Depth 10)
+                $splatWebRequest = @{
+                    Uri             = $BaseUrl + "/connectors/KnUser"
+                    Headers         = $Headers
+                    Method          = 'PUT'
+                    Body            = ([System.Text.Encoding]::UTF8.GetBytes($body))
+                    ContentType     = "application/json;charset=utf-8"
+                    UseBasicParsing = $true
+                }
+
+                $null = Invoke-RestMethod @splatWebRequest -Verbose:$false
+
+                $Log = @{
+                    Action            = "UpdateAccount"
+                    System            = "AFAS User"
+                    Message           = "Successfully updated AFAS user [$($user.employeeID)] attributes [EmAd] from [$($currentAccount.Email_werk_gebruiker)] to [$newMailAddress] and/or [userPrincipalName] from [$($currentAccount.Upn)] to [$newUserPrincipalName]"
+                    IsError           = $false
+                    TargetDisplayName = $user.userPrincipalName
+                    TargetIdentifier  = $user.ObjectGuid
+                }
+                Write-Information -Tags "Audit" -MessageData $log
+                break
+            }
+            'NoChanges' {
+                $Log = @{
+                    Action            = "UpdateAccount"
+                    System            = "AFAS User"
+                    Message           = "Successfully checked attributes [EmAd] and [Upn] of AFAS user [$($user.employeeID)]: [EmAd] [$($currentAccount.Email_werk_gebruiker)] equals [$newMailAddress] and [Upn] [$($currentAccount.Upn)] equals [$newUserPrincipalName]; no changes needed"
+                    IsError           = $false
+                    TargetDisplayName = $user.userPrincipalName
+                    TargetIdentifier  = $user.ObjectGuid
+                }
+                Write-Information -Tags "Audit" -MessageData $log
+                break
+            }
+        }
+    }
+    catch {
+        $ex = $PSItem
+        if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+            $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+            $errorObj = Resolve-AFAS-ProfitError -ErrorObject $ex
+            $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+            $auditMessage = "Error $($actionMessage). Error: $($errorObj.FriendlyMessage)"
+        }
+        else {
+            $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+            $auditMessage = "Error $($actionMessage). Error: $($ex.Exception.Message)"
+        }
+
+        $Log = @{
+            Action            = "UpdateAccount"
+            System            = "AFAS User"
+            Message           = "Error $($actionMessage). Error Message: $auditMessage"
+            IsError           = $true
+            TargetDisplayName = $user.userPrincipalName
+            TargetIdentifier  = $user.ObjectGuid
+        }
+        Write-Information -Tags "Audit" -MessageData $log
+        Write-Warning $warningMessage
+        Write-Error $auditMessage
+    }
+}
+else {
+    $Log = @{
+        Action            = "UpdateAccount"
+        System            = "AFAS User"
+        Message           = "Skipped update attributes [EmAd]/[Upn] of AFAS user [$($user.employeeID)]: employeeID is empty"
+        IsError           = $false
+        TargetDisplayName = $user.userPrincipalName
+        TargetIdentifier  = $user.ObjectGuid
+    }
+    Write-Information -Tags "Audit" -MessageData $log
+}
