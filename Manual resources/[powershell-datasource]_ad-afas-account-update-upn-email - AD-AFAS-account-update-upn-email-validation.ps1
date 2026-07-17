@@ -114,10 +114,10 @@ try {
     }
 
     if ($outputText.isError -contains - $true) {
-        $outputMessage = "Invalid"
+        $outputMessage = "Invalid:"
     }
     else {
-        $outputMessage = "Valid"
+        $outputMessage = "Valid:"
         if ($blnupn) {
             $outputText.Add([PSCustomObject]@{
                     Message  = "UPN [$newUserPrincipalName] unique"
