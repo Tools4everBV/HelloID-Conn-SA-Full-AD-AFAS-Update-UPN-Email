@@ -1,7 +1,7 @@
 # HelloID-Conn-SA-Full-AD-AFAS-Update-UPN-Email
 
-| :information_source: Information |
-| :------------------------------- |
+| :information_source: Information                                                                                                                                                                                                                                                                                                                                                          |
+|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | This repository contains the connector and configuration code only. The implementer is responsible for acquiring the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements. |
 
 ## Description
@@ -36,7 +36,10 @@ Recommended permissions:
 Ensure AFAS Profit is configured with:
 
 - AFAS tenant id
-- AFAS AppConnector token
+- AFAS AppConnector configured for OAuth client credentials (OAuth-only)
+- AFAS OAuth credentials:
+  - ClientId
+  - ClientSecret
 - Loaded AFAS GetConnector:
   - Tools4ever - HelloID - T4E_HelloID_Users_v2.gcn
   - https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-AFAS-Profit-Employees
@@ -55,11 +58,12 @@ Once you have completed the Active Directory and AFAS setup, configure the follo
 
 The following user-defined variables are used by the connector and should be configured in HelloID Service Automation (Automation -> Variable library).
 
-| Variable Name   | Description                                                                                               | Required |
-| --------------- | --------------------------------------------------------------------------------------------------------- | -------- |
-| ADusersSearchOU | Array of Active Directory OUs used to scope user search results                                           | Yes      |
-| AFASBaseUrl     | The base URL to the AFAS Profit REST API (for example: https://12345.rest.afas.online/profitrestservices) | Yes      |
-| AFASToken       | The AppConnector token for AFAS Profit authentication                                                     | Yes      |
+| Variable Name    | Description                                                                                               | Required |
+|------------------|-----------------------------------------------------------------------------------------------------------|----------|
+| ADusersSearchOU  | Array of Active Directory OUs used to scope user search results                                           | Yes      |
+| AFASBaseUrl      | The base URL to the AFAS Profit REST API (for example: https://12345.rest.afas.online/profitrestservices) | Yes      |
+| AFASClientId     | The OAuth ClientId for AFAS Profit authentication                                                         | Yes      |
+| AFASClientSecret | The OAuth ClientSecret for AFAS Profit authentication                                                     | Yes      |
 
 ## Remarks
 
@@ -91,7 +95,7 @@ The following user-defined variables are used by the connector and should be con
 The following operations are used by the connector:
 
 | Operation                                     | Purpose                                                    |
-| --------------------------------------------- | ---------------------------------------------------------- |
+|-----------------------------------------------|------------------------------------------------------------|
 | Active Directory (Get-ADUser)                 | Search and retrieve Active Directory users                 |
 | Active Directory (Set-ADUser)                 | Update UserPrincipalName, EmailAddress, and ProxyAddresses |
 | {AFASBaseUrl}/connectors/T4E_HelloID_Users_v2 | Retrieve AFAS employee information                         |
