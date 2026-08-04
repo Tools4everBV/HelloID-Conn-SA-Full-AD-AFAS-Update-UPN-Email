@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [2.0.1] - 2026-07-29
+
+### Fixed
+- Regex validation fixed from `^Valid:[\\s\\S]*` to `^Valid[\\s\\S]*`
+
 ## [2.0.0] - 2026-03-10
 
 ### Added
