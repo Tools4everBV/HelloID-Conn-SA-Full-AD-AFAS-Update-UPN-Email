@@ -1,7 +1,7 @@
 # variables configured in form:
 $user = $form.gridUsers
-$blnmail = [System.Convert]::ToBoolean($form.blnMail)
-$blnupn = [System.Convert]::ToBoolean($form.blnUPN)
+$blnmail = ($form.blnMail -eq "true" -or $form.blnMail -eq $true)
+$blnupn = ($form.blnUPN -eq "true" -or $form.blnUPN -eq $true)
 $newMailAddress = $form.newMail
 $newUserPrincipalName = $form.newUPN
 $BaseUrl = $AFASBaseUrl
