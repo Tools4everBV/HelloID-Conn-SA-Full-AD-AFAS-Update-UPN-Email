@@ -16,7 +16,8 @@ $propertiesToSelect = @(
     "UserPrincipalName",
     "mail",
     "ObjectGuid",
-    "EmployeeID"
+    "EmployeeID",
+    "ProxyAddresses"
 ) # Properties to select from Microsoft AD, comma separated
 
 # Set debug logging
