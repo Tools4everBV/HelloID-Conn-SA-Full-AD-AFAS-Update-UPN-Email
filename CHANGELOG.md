@@ -7,8 +7,20 @@ All notable changes to this project will be documented in this file. The format 
 ### Changed
 - Changed authentication to OAuth (breaking: `Token` configuration field replaced by `ClientId` and `ClientSecret`)
 
+## [2.0.3] - 2026-08-11
+
 ### Fixed
-- Fixed a validation bug found during testing
+- `ProxyAddresses` were overwritten instead of updated.
+
+## [2.0.2] - 2026-08-05
+
+### Fixed
+- Fixed error where boolean was `null` in tasks
+
+## [2.0.1] - 2026-07-29
+
+### Fixed
+- Regex validation fixed from `^Valid:[\\s\\S]*` to `^Valid[\\s\\S]*`
 
 ## [2.0.0] - 2026-03-10
 
