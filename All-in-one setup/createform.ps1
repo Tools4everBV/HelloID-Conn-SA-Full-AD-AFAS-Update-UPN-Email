@@ -350,8 +350,8 @@ foreach ($item in $globalHelloIDVariables) {
 $tmpPsScript = @'
 # variables configured in form:
 $user = $datasource.user
-$blnmail = [System.Convert]::ToBoolean($datasource.blnMail)
-$blnupn = [System.Convert]::ToBoolean($datasource.blnUPN)
+$blnmail = if ([string]::IsNullOrWhiteSpace($datasource.blnMail)) { $false } else { [System.Convert]::ToBoolean($datasource.blnMail) }
+$blnupn = if ([string]::IsNullOrWhiteSpace($datasource.blnUPN)) { $false } else { [System.Convert]::ToBoolean($datasource.blnUPN) }
 $newMailAddress = $datasource.newMail
 $newUserPrincipalName = $datasource.newUPN
 $searchUpperCaseEmail = $newMailAddress
